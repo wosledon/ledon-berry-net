@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+option csharp_namespace = "Ledon.BerryNet.Grpc.Examples";
+
+package examples;
+
+// 示例 gRPC 服务
+service ExampleService {
+  // 一元调用
+  rpc GetMessage (GetMessageRequest) returns (GetMessageResponse);
+  
+  // 服务器流式调用
+  rpc GetMessages (GetMessagesRequest) returns (stream GetMessageResponse);
+  
+  // 客户端流式调用
+  rpc SendMessages (stream SendMessageRequest) returns (SendMessageResponse);
+  
+  // 双向流式调用
+  rpc Chat (stream ChatMessage) returns (stream ChatMessage);
+}
+
+// 获取消息请求
+message GetMessageRequest {
+  string id = 1;
+}
+
+// 获取消息响应
+message GetMessageResponse {
+  string id = 1;
+  string content = 2;
+  int64 timestamp = 3;
+}
+
+// 获取多个消息请求
+message GetMessagesRequest {
+  repeated string ids = 1;
+  int32 limit = 2;
+}
+
+// 发送消息请求
+message SendMessageRequest {
+  string content = 1;
+  string sender = 2;
+}
+
+// 发送消息响应
+message SendMessageResponse {
+  bool success = 1;
+  string message_id = 2;
+}
+
+// 聊天消息
+message ChatMessage {
+  string id = 1;
+  string content = 2;
+  string sender = 3;
+  int64 timestamp = 4;
+}
