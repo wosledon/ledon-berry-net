@@ -2,7 +2,7 @@
 
 # BerryNet
 
-BerryNet 是一个现代化的 .NET 网络通信库生态系统，提供流畅的链式调用API、工厂模式支持、深度的 AspNetCore 集成、专门的 WebAssembly 优化以及高性能的 gRPC 客户端支持。
+BerryNet 是一个现代化的 .NET 网络通信库生态系统，提供流畅的链式调用API、工厂模式支持、深度的 AspNetCore 集成、专门的 WebAssembly 优化、高性能的 gRPC 客户端支持以及无需 proto 文件的动态 gRPC 调用能力。
 
 ## 🌟 特性
 
@@ -12,6 +12,8 @@ BerryNet 是一个现代化的 .NET 网络通信库生态系统，提供流畅�
 - ✅ **AspNetCore深度集成** - 无缝集成到AspNetCore应用中
 - ✅ **WASM专项优化** - 专为 Blazor WebAssembly 设计
 - ✅ **gRPC高性能通信** - 现代化的 gRPC 客户端支持
+- ✅ **动态 gRPC 调用** - 无需预生成 proto 文件的运行时 gRPC 调用
+- ✅ **服务发现** - 自动发现 gRPC 服务和方法
 - ✅ **压缩支持** - Gzip、Deflate、Brotli 多种压缩算法
 - ✅ **自动JSON序列化** - 内置JSON支持，可自定义序列化选项
 - ✅ **请求头传播** - 自动传播认证信息、相关ID等
@@ -43,6 +45,11 @@ Ledon.BerryNet/
 │       ├── Extensions/              # gRPC扩展方法
 │       ├── Examples/                # gRPC使用示例
 │       └── Proto/                   # Protocol Buffers定义
+│   └── Ledon.BerryNet.Grpc.Dynamic/ # 动态gRPC客户端 (.NET 7/8/9)
+│       ├── Messages/                # 动态消息实现
+│       ├── Reflection/              # 反射支持
+│       ├── Extensions/              # 扩展方法
+│       └── Examples/                # 动态gRPC使用示例
 └── docs/                            # 详细文档
 ```
 ```
@@ -63,6 +70,9 @@ dotnet add package Ledon.BerryNet.Wasm
 
 # gRPC 客户端 (高性能 RPC 通信)
 dotnet add package Ledon.BerryNet.Grpc
+
+# 安装动态 gRPC 客户端
+dotnet add package Ledon.BerryNet.Grpc.Dynamic
 ```
 
 ### 2. 基础使用 (核心包)
@@ -225,7 +235,48 @@ await streamingCall.ResponseStream.ForEachAsync(response =>
 var allData = await streamingCall.ResponseStream.ToListAsync();
 ```
 
-### 6. 类型化客户端
+### 6. 动态 gRPC 客户端使用（无需 Proto 文件）
+
+```csharp
+using Ledon.BerryNet.Grpc.Dynamic;
+
+// 创建动态客户端
+var factory = new DynamicGrpcClientFactory();
+using var client = factory.CreateClient("https://localhost:5001");
+
+// 使用 JSON 直接调用 gRPC 服务
+var requestJson = """
+{
+    "name": "World",
+    "message": "Hello from dynamic client!"
+}
+""";
+
+var responseJson = await client.CallUnaryJsonAsync(
+    "GreeterService", 
+    "SayHello", 
+    requestJson);
+
+Console.WriteLine($"Response: {responseJson}");
+
+// 服务发现
+var services = await client.GetAvailableServicesAsync();
+foreach (var serviceName in services)
+{
+    Console.WriteLine($"Available service: {serviceName}");
+    var methods = await client.GetServiceMethodsAsync(serviceName);
+    foreach (var method in methods)
+    {
+        Console.WriteLine($"  Method: {method.Name}");
+    }
+}
+
+// 预注册描述符（当服务器不支持反射时）
+client.RegisterServiceDescriptor(yourServiceDescriptor);
+client.RegisterFileDescriptor(yourFileDescriptor);
+```
+
+### 7. 类型化客户端
 
 ```csharp
 // 继承基类实现类型化客户端
@@ -274,6 +325,7 @@ public class WeatherApiClient
 | ASP.NET Core Web 应用 | `Ledon.BerryNet.AspNetCore` | 包含依赖注入和配置 |
 | Blazor WebAssembly | `Ledon.BerryNet.Wasm` | WASM 优化版本 |
 | gRPC 通信 | `Ledon.BerryNet.Grpc` | 高性能 gRPC 客户端 |
+| 动态 gRPC 调用 | `Ledon.BerryNet.Grpc.Dynamic` | 无需 proto 文件的运行时 gRPC |
 | 微服务架构 | 组合使用 | 根据服务类型选择合适的包 |
 
 ## 🎯 选择合适的包
@@ -284,6 +336,7 @@ public class WeatherApiClient
 | **Web API/MVC** | `Ledon.BerryNet.AspNetCore` | DI集成、配置管理、日志集成 |
 | **Blazor WASM** | `Ledon.BerryNet.Wasm` | CORS支持、压缩优化、进度回调 |
 | **gRPC 服务** | `Ledon.BerryNet.Grpc` | 高性能通信、流式操作、重试机制 |
+| **动态 gRPC** | `Ledon.BerryNet.Grpc.Dynamic` | 无需 proto、服务发现、运行时调用 |
 
 ## 🚀 性能特性
 
@@ -303,6 +356,16 @@ public class WeatherApiClient
 | **流式支持** | 原生支持 | 需要额外实现 |
 | **类型安全** | 强类型（Protobuf） | 弱类型（JSON） |
 | **浏览器支持** | 需要gRPC-Web | 原生支持 |
+
+### 动态 gRPC vs 静态 gRPC 对比
+
+| 特性 | 动态 gRPC | 静态 gRPC |
+|------|-----------|-----------|
+| **开发便利性** | 高（无需生成代码） | 中等（需要生成代码） |
+| **类型安全** | 运行时检查 | 编译时检查 |
+| **性能** | 略低（反射开销） | 高（直接调用） |
+| **灵活性** | 极高（运行时发现） | 低（编译时确定） |
+| **调试难度** | 中等 | 低 |
 
 ## 📚 文档和示例
 
@@ -331,6 +394,7 @@ public class WeatherApiClient
 - **v1.0.0** - 初始版本，支持基础 HTTP 客户端和 AspNetCore 扩展
 - **v1.1.0** - 添加 WASM 支持和压缩功能
 - **v1.2.0** - 添加 gRPC 支持，完善生态系统
+- **v1.3.0** - 添加动态 gRPC 支持，无需 proto 文件的运行时调用
 
 ## 🌟 Star History
 
